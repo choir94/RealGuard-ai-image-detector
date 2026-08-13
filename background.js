@@ -51,6 +51,11 @@ async function initModel() {
 
     // Load model and processor separately for more control over output
     // Using AutoModel instead of pipeline to bypass softmax on single-label model
+    // 
+    // dtype options:
+    //   'q8'  → model_int8.onnx (22MB)  — fast, slight accuracy loss on OOD
+    //   'fp32' → model.onnx (83MB)     — max accuracy, slower download
+    // We use q8 for initial load. If accuracy is insufficient, switch to fp32.
     model = await AutoModel.from_pretrained(MODEL_ID, {
       device: device,
       dtype: 'q8',

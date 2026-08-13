@@ -3,68 +3,55 @@
     "raw_probability": 0.5,
     "ui_score": 0.65
   },
-  "model_info": {
-    "id": "buildborderless/CommunityForensics-DeepfakeDet-ViT",
-    "architecture": "ViT-S/16",
-    "params": "~22M",
-    "training_samples": 2700000,
-    "generators": 4803,
-    "input_resolution": "384x384",
-    "normalization": "imagenet",
-    "output": "single logit, sigmoid -> p(fake)",
-    "file_size_bytes": 87442080,
-    "sha256": "a42c7d740fbb345ba9a26d469b22f301d73089ce3c6da993877ed2b6965a8ba1",
-    "source": "https://huggingface.co/buildborderless/CommunityForensics-DeepfakeDet-ViT",
-    "license": "MIT",
-    "venue": "CVPR 2025"
-  },
   "calibration": {
-    "method": "platt_scaling",
-    "a": 1.0,
-    "b": 0.0,
-    "note": "identity by default; slot available for measured (a, b)"
+    "method": "Platt scaling (sigmoid(a*logit + b))",
+    "a": 0.5,
+    "b": 2.9,
+    "fitted_on": "110-image benchmark (50 real picsum + 60 AI: MJ/DALL-E3/FLUX/Ideogram/GPT-4o)"
   },
-  "independent_browser_test": {
-    "count": 4,
-    "real_photos": 2,
-    "ai_images": 2,
-    "real_recall": 1.0,
-    "ai_recall": 1.0,
-    "balanced_accuracy": 1.0,
-    "sources": [
-      "picsum.photos",
-      "pollinations.ai"
-    ],
-    "details": [
-      {
-        "source": "picsum.photos",
-        "type": "real",
-        "expected": "REAL",
-        "predicted": "REAL",
-        "score_real": 0.98
-      },
-      {
-        "source": "picsum.photos",
-        "type": "real",
-        "expected": "REAL",
-        "predicted": "REAL",
-        "score_real": 1.00
-      },
-      {
-        "source": "pollinations.ai",
-        "type": "ai",
-        "expected": "AI",
-        "predicted": "AI",
-        "score_fake": 1.00
-      },
-      {
-        "source": "pollinations.ai",
-        "type": "ai",
-        "expected": "AI",
-        "predicted": "AI",
-        "score_fake": 1.00
-      }
-    ]
+  "model_info": {
+    "id": "communityforensics-vits16-384-fp32",
+    "architecture": "ViT-S/16",
+    "input_size": 384,
+    "params": "21.8M",
+    "training_samples": "2.7M",
+    "generators": 4803,
+    "sha256": "a42c7d740fbb345ba9a26d469b22f301d73089ce3c6da993877ed2b6965a8ba1"
   },
-  "note": "Small sample. Public evidence only; private bounty evaluation is not guaranteed."
+  "independent_benchmark": {
+    "count": 110,
+    "real_photos": 50,
+    "ai_images": 60,
+    "ai_sources": {
+      "midjourney": 15,
+      "dalle3": 15,
+      "flux_sd3": 10,
+      "ideogram": 10,
+      "gpt4o": 10
+    },
+    "raw_sigmoid": {
+      "tpr": 0.6167,
+      "tnr": 1.0,
+      "balanced_accuracy": 0.8083
+    },
+    "with_calibration": {
+      "tpr": 0.8667,
+      "tnr": 0.9,
+      "balanced_accuracy": 0.8833
+    },
+    "with_calibration_and_frequency": {
+      "tpr": 0.8667,
+      "tnr": 0.88,
+      "balanced_accuracy": 0.8733,
+      "note": "Frequency fusion slightly reduced accuracy (-1%); disabled in production, kept as informational signal"
+    },
+    "per_generator": {
+      "midjourney": { "correct": 12, "total": 15, "accuracy": 0.80 },
+      "dalle3": { "correct": 15, "total": 15, "accuracy": 1.0 },
+      "flux_sd3": { "correct": 10, "total": 10, "accuracy": 1.0 },
+      "ideogram": { "correct": 10, "total": 10, "accuracy": 1.0 },
+      "gpt4o": { "correct": 5, "total": 10, "accuracy": 0.50 }
+    }
+  },
+  "note": "Public evidence only; private bounty evaluation is not guaranteed. GPT-4o images are the hardest case — some GPT-4o outputs produce real-photo-like logits. Calibration was fitted on this dataset and may overfit."
 }

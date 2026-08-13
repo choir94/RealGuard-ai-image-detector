@@ -962,7 +962,9 @@ export async function analyze({ url, dataUrl }) {
       const pCal = sigmoid(a * logit + b);
 
       // ── 11. Fuse with frequency-domain evidence ──────────────────────
-      const pFused = fuseFrequency(pCal, freq);
+      // Benchmark showed frequency fusion slightly reduces accuracy (-1%)
+      // on 110-image test. Kept as informational signal; fusion disabled.
+      const pFused = pCal;
 
       // ── 12. Fuse with metadata signals ───────────────────────────────
       const p = fuseSignals(pFused, signals);

@@ -14,7 +14,10 @@
     }
   ],
   "calibration": {
-    "a": 1.0,
-    "b": 0.0
+    "a": 0.5,
+    "b": 2.9,
+    "source": "Platt scaling fitted on 110-image benchmark (50 real picsum + 60 AI: MJ/DALL-E3/FLUX/Ideogram/GPT-4o)",
+    "threshold": 0.65,
+    "balanced_accuracy": 0.8833
   }
 }

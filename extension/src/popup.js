@@ -43,7 +43,7 @@ document.addEventListener('DOMContentLoaded', () => {
     chrome.storage.local.set({ blurAI: blurToggle.checked });
     chrome.tabs.query({ active: true, currentWindow: true }).then(([tab]) => {
       if (tab?.id) chrome.tabs.sendMessage(tab.id, { type: 'set-blur', blurAI: blurToggle.checked });
-    });
+    }).catch(() => {});
   });
   setInterval(refresh, 2000);
 });

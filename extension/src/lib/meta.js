@@ -683,7 +683,7 @@ function parseXmp(xml, signals, source) {
   //    Element form:    <xmp:CreatorTool>DALL·E 3</xmp:CreatorTool>
   const toolValues = [];
 
-  const attrRe = /(?:xmp:CreatorTool|creatorTool|photoshop:Source|photoshop:Country|tiff:Software|exif:Software|aux:Software)\s*=\s*"([^"]*)"/gi;
+  const attrRe = /(?:xmp:CreatorTool|creatorTool|photoshop:Source|tiff:Software|exif:Software|aux:Software)\s*=\s*"([^"]*)"/gi;
   let m;
   while ((m = attrRe.exec(xml)) !== null) toolValues.push(m[1].trim());
 

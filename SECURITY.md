@@ -14,7 +14,7 @@ detect tampering or corruption:
 
 ```js
 // Computed once, stored in source — do not generate at runtime.
-const EXPECTED_SHA256 = "<sha256-of-model.onnx>";
+const EXPECTED_SHA256 = "a42c7d740fbb345ba9a26d469b22f301d73089ce3c6da993877ed2b6965a8ba1";
 
 const buf = await file.arrayBuffer();
 const digest = await crypto.subtle.digest("SHA-256", buf);
@@ -44,26 +44,15 @@ This project adheres to the following constraints:
 
 ## Content Security Policy (CSP)
 
-The application ships with a strict CSP that blocks inline scripts, remote
-code, and external network exfiltration:
+The extension manifest declares the following CSP for extension pages:
 
 ```
-default-src 'self';
-script-src 'self' 'wasm-unsafe-eval';
-style-src 'self';
-img-src 'self' blob: data:;
-worker-src 'self' blob:;
-connect-src 'self';
-object-src 'none';
-base-uri 'self';
-frame-ancestors 'none';
+script-src 'self' 'wasm-unsafe-eval'; object-src 'self'
 ```
 
 - `'wasm-unsafe-eval'` is required **only** for ONNX Runtime WASM execution;
   it does not enable JavaScript `eval()`.
-- `connect-src 'self'` ensures no data leaves the origin.
-- `object-src 'none'` and `frame-ancestors 'none'` prevent embedding /
-  plugin attacks.
+- `'self'` restricts scripts and objects to the extension's own packaged files.
 
 ## Reporting a Vulnerability
 

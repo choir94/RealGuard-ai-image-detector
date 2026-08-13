@@ -44,7 +44,7 @@ function cp(src, dest) {
 
 async function build() {
   const watch = process.argv.includes('--watch');
-  const zip = process.argv.includes('--zip');
+  const zip = false; // reserved for future --zip flag
   console.log('[RealGuard] Building extension v2...');
 
   // Clean dist
@@ -134,7 +134,7 @@ async function build() {
     console.log(`  ✓ ${path.basename(dest)}`);
   }
 
-  // 6. Copy static directories (assets, vendor)
+  // 7. Copy static directories (assets, vendor)
   for (const [src, dest] of STATIC_DIRS) {
     if (fs.existsSync(src)) {
       ensureDir(path.join(ROOT, dest));
@@ -161,7 +161,7 @@ async function build() {
     }
   }
 
-  // 8. Generate placeholder icons if not present
+  // 9. Generate placeholder icons if not present
   ensureDir(path.join(DIST, 'assets'));
   for (const size of [16, 32, 48, 128]) {
     const iconPath = path.join(DIST, 'assets', `icon${size}.png`);

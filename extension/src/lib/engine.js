@@ -38,7 +38,7 @@
 import ort from '../../../node_modules/onnxruntime-web/dist/ort.bundle.min.mjs';
 
 import { scanMetadata, fuseSignals } from './meta.js';
-import { analyzeFrequency, fuseFrequency } from './freq.js';
+import { analyzeFrequency } from './freq.js';
 
 // ────────────────────────────────────────────────────────────────────────────
 // Constants
@@ -576,7 +576,7 @@ export async function ensureSession() {
  *    `distance = |source + 0.5 - center| / filterScale`.
  * 5. Weights are normalised to sum to 1.
  *
- * Reference: LocalLens `offscreen.ts` lines 56-115.
+ * Reference: Pillow transforms.Resize implementation (bilinear resize algorithm).
  *
  * @param {number} inputSize  - Number of source pixels along this axis.
  * @param {number} outputSize - Number of output pixels along this axis.
@@ -1091,7 +1091,8 @@ export async function explain({ url, dataUrl }) {
       return {
         ok: true,
         base, // full-image probability
-        grid, // 9 region probabilities (row-major: TL→TR→BL→BR)
+        grid, // 9 region probabilities (row-major: TL→TM→TR→ML→MM→MR→BL→BM→BR)
+        n: 3, // grid dimension (3×3)
         logits: gridLogits, // raw logits for debugging / custom viz
         engine: state.engine,
         model: model.id,

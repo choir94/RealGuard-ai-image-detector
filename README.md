@@ -8,7 +8,7 @@
   <a href="./LICENSE">MIT License</a> ·
   <a href="./docs/MODEL.md">Model Evidence</a> ·
   <a href="./docs/PRIVACY.md">Privacy</a> ·
-  <a href="./docs/SECURITY.md">Security</a> ·
+  <a href="./SECURITY.md">Security</a> ·
   <a href="./COMPLIANCE.md">Compliance</a>
 </p>
 
@@ -34,8 +34,8 @@ WebGPU/WASM.
 
 ## Detection signals
 
-RealGuard combines five independent signals rather than relying on a single
-classifier:
+RealGuard uses a multi-signal pipeline combining a neural classifier,
+metadata forensics (C2PA/EXIF/XMP/PNG), and Platt calibration:
 
 1. **Neural classifier** — ViT-S/16 fine-tuned on 4,803 AI generators. Outputs
    a logit → sigmoid → `p(fake)`.
@@ -59,7 +59,7 @@ classifier:
 ```bash
 git clone https://github.com/choir94/RealGuard-ai-image-detector.git
 cd RealGuard-ai-image-detector
-npm install
+npm ci
 npm run build
 ```
 
@@ -70,7 +70,7 @@ Then load the extension:
 3. Click **Load unpacked**
 4. Select the `extension/dist/` folder
 
-The model (87 MB) downloads automatically on first use from HuggingFace and is
+The model (87 MB, 83.3 MiB) downloads automatically on first use from Hugging Face and is
 cached in the browser's Cache Storage. After that, the extension works fully
 offline.
 
@@ -201,7 +201,6 @@ RealGuard-ai-image-detector/
 │   ├── MODEL.md               # Model evidence + evaluation
 │   ├── evaluation.json        # Machine-readable results
 │   ├── PRIVACY.md             # Privacy policy
-│   └── SECURITY.md            # Security policy
 ├── .github/workflows/ci.yml   # CI: build + test
 ├── build.mjs                  # esbuild bundling + asset copy
 ├── COMPLIANCE.md              # Bounty compliance matrix

@@ -139,8 +139,13 @@ async function showHeatmap(rec) {
   if (!rec.heat) {
     rec.heat = 'pending';
     try {
-      const payload = rec.url.startsWith('blob:') ? {} : { url: rec.url };
-      if (!payload.url) return;
+      let payload;
+      if (rec.url.startsWith('blob:')) {
+        const blob = await (await fetch(rec.url)).blob();
+        payload = { dataUrl: await blobToDataUrl(blob) };
+      } else {
+        payload = { url: rec.url };
+      }
       const res = await chrome.runtime.sendMessage({ target: 'bg', type: 'explain', ...payload });
       rec.heat = res?.ok ? res : null;
     } catch {
@@ -236,7 +241,8 @@ async function analyzeRecord(rec) {
     rec.result = res;
     rec.status = 'done';
     rec.img.setAttribute('data-realguard-score', res.p.toFixed(4));
-    rec.img.setAttribute('data-realguard-verdict', res.p >= AI_THRESHOLD ? 'ai' : 'real');
+    const [verdict] = labelFor(res.p);
+    rec.img.setAttribute('data-realguard-verdict', verdict);
     if (typeof res.logit === 'number') rec.img.setAttribute('data-realguard-logit', res.logit.toFixed(4));
   } catch (e) {
     rec.status = 'error';

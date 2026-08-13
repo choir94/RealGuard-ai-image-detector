@@ -169,8 +169,8 @@ function neutralResult() {
 }
 
 // ─── Canvas pool (avoids per-call allocation) ─────────────────────────────
-// The canvas is reused across calls. In a service worker the module
-// state persists until teardown (~30s idle), so this cache amortizes
+// The canvas is reused across calls. In the offscreen document the module
+// state persists for the document lifetime, so this cache amortizes
 // canvas creation across many image analyses.
 
 let _canvas = null;

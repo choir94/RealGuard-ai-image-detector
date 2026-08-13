@@ -77,21 +77,29 @@ async function processFolder(files) {
   tbody.innerHTML = '';
   for (const r of scored.sort((a, b) => b.score - a.score)) {
     const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${r.name}</td><td>${r.label}</td><td>${(r.score * 100).toFixed(1)}%</td><td class="${r.verdict}">${r.verdict}</td><td>${r.correct ? '✓' : '✗'}</td>`;
+    const cells = [r.name, r.label, `${(r.score * 100).toFixed(1)}%`, r.verdict, r.correct ? '✓' : '✗'];
+    for (const cell of cells) {
+      const td = document.createElement('td');
+      td.textContent = cell;
+      tr.appendChild(td);
+    }
     tbody.appendChild(tr);
   }
   $('results').style.display = 'block';
 
   // CSV export
   $('export').onclick = () => {
+    const esc = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
     const csv = 'name,label,score,logit,verdict,correct\n' + rows.map(r =>
-      `${r.name},${r.label},${r.score ?? ''},${r.logit ?? ''},${r.verdict ?? ''},${r.correct ?? ''}`
+      [r.name, r.label, r.score ?? '', r.logit ?? '', r.verdict ?? '', r.correct ?? ''].map(esc).join(',')
     ).join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
+    a.href = url;
     a.download = 'realguard_results.csv';
     a.click();
+    URL.revokeObjectURL(url);
   };
 }
 
@@ -102,6 +110,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   // Drag & drop
   const drop = $('drop-zone');
+  drop.addEventListener('click', () => $('folder-input').click());
   drop.addEventListener('dragover', (e) => { e.preventDefault(); drop.classList.add('over'); });
   drop.addEventListener('dragleave', () => drop.classList.remove('over'));
   drop.addEventListener('drop', (e) => {

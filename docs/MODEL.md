@@ -16,7 +16,7 @@ evidence gathered to support its use in RealGuard.
 | **Input resolution** | 384 × 384 |
 | **Normalization** | ImageNet mean / std |
 | **Output** | Single logit → `sigmoid(logit)` → `p(fake)` |
-| **Parameters** | ~22M (ViT-S) |
+| **Parameters** | 21.8M (ViT-S) |
 | **File size** | 87,442,080 bytes (83.3 MB) |
 | **SHA-256** | `a42c7d740fbb345ba9a26d469b22f301d73089ce3c6da993877ed2b6965a8ba1` |
 

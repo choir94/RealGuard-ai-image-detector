@@ -44,9 +44,14 @@ async function initModel() {
     let device = 'wasm';
     try {
       const adapter = await navigator.gpu?.requestAdapter();
-      if (adapter) device = 'webgpu';
+      if (adapter) {
+        // Test that device actually works (not just available)
+        const testDevice = await adapter.requestDevice();
+        testDevice.destroy();
+        device = 'webgpu';
+      }
     } catch (e) {
-      console.log('[RealGuard] WebGPU not available, using WASM');
+      console.log('[RealGuard] WebGPU unavailable, using WASM:', e.message);
     }
 
     // Load model and processor separately for more control over output

@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="overlay.css">
+</head>
+<body class="realguard-popup">
+  <h1>
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+      <path d="M2 17l10 5 10-5"/>
+      <path d="M2 12l10 5 10-5"/>
+    </svg>
+    RealGuard
+  </h1>
+  <p class="subtitle">AI Image Detector — 100% Local & Private</p>
+
+  <div id="status" class="status loading">
+    <div class="spinner"></div>
+    <span id="status-text">Loading model...</span>
+  </div>
+
+  <div class="stats">
+    <div class="stat">
+      <div class="stat-value" id="stat-scanned">0</div>
+      <div class="stat-label">Images Scanned</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value" id="stat-ai">0</div>
+      <div class="stat-label">AI Detected</div>
+    </div>
+  </div>
+
+  <div class="footer">
+    Powered by CommunityForensics ViT-Small (2.7M samples, 4,803 generators)<br>
+    MIT License — Runs entirely in your browser
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

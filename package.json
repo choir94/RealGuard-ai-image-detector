@@ -1,0 +1,14 @@
+{
+  "name": "realguard-ai-image-detector",
+  "version": "1.0.0",
+  "description": "Chrome Extension MV3 that detects AI-generated images 100% locally in the browser",
+  "license": "MIT",
+  "scripts": {
+    "build": "node scripts/build.js",
+    "dev": "node scripts/build.js --watch"
+  },
+  "dependencies": {
+    "@huggingface/transformers": "^4.0.0"
+  },
+  "devDependencies": {}
+}

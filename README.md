@@ -26,7 +26,7 @@ WebGPU/WASM.
 |---------|--------|
 | **Model** | [CommunityForensics ViT-S/16 @384](https://huggingface.co/buildborderless/CommunityForensics-DeepfakeDet-ViT) — 21.8M params, trained on 2.7M samples from 4,803 generators (CVPR 2025) |
 | **Inference** | ONNX Runtime Web direct (`.bundle` build), WebGPU primary with WASM fallback |
-| **Pipeline** | 5-signal fusion: neural classifier + frequency-domain analysis + C2PA/metadata forensics + EXIF/XMP/IPTC signals + Platt calibration |
+| **Pipeline** | Neural classifier + Platt calibration + C2PA/metadata forensics + EXIF/XMP/IPTC signals. Frequency analysis implemented but disabled (benchmark showed −1% accuracy). |
 | **Preprocessing** | Custom Pillow-matching bilinear resize (not browser canvas resampling) |
 | **Architecture** | Offscreen document pattern — inference survives service-worker teardowns |
 | **Privacy** | No telemetry, no cloud, no remote code. Images never leave the device. |
@@ -40,8 +40,9 @@ classifier:
 1. **Neural classifier** — ViT-S/16 fine-tuned on 4,803 AI generators. Outputs
    a logit → sigmoid → `p(fake)`.
 2. **Frequency-domain analysis** — Laplacian high-pass filter detects "too
-   smooth" regions characteristic of AI generation. Only nudges in the uncertain
-   zone [0.3–0.7], max ±0.05.
+   smooth" regions characteristic of AI generation. Implemented as an
+   informational signal; fusion disabled after benchmark showed it reduced
+   accuracy by 1%.
 3. **C2PA / JUMBF manifests** — Signed provenance manifests from Adobe C2PA.
    Hard evidence → clamps to ≥0.97.
 4. **Metadata forensics** — Scans PNG `tEXt`/`iTXt` chunks (Stable Diffusion
@@ -170,7 +171,7 @@ Per-generator accuracy (calibrated, threshold 0.65):
 ## Project structure
 
 ```
-realguard/
+RealGuard-ai-image-detector/
 ├── extension/
 │   ├── manifest.json          # MV3 manifest
 │   ├── src/

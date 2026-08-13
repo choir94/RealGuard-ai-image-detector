@@ -9,7 +9,7 @@
  *
  * Pipeline (analyze):
  *   fetch bytes → scanMetadata → analyzeFrequency → decode bitmap → preprocess
- *   → serialized session.run → sigmoid(logit) → calibration → fuseFrequency
+ *   → serialized session.run → sigmoid(logit) → calibration → fuseSignals
  *   → fuseSignals → cached result
  *
  * Pipeline (explain):
@@ -887,7 +887,8 @@ function serialized(fn) {
  *   8. Serialized `session.run()` — get raw logit.
  *   9. `sigmoid(logit)` → pRaw (uncalibrated probability).
  *  10. `sigmoid(a*logit + b)` → pCal (calibrated probability).
- *  11. `fuseFrequency(pCal, freq)` → blend spectral evidence.
+ *  11. `fuseFrequency(pCal, freq)` → disabled (benchmark showed −1% accuracy);
+ *      `pFused = pCal` instead.
  *  12. `fuseSignals(pFused, signals)` → blend metadata evidence.
  *  13. Cache and return.
  *

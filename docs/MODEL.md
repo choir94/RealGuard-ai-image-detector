@@ -109,10 +109,10 @@ performance on any specific held-out evaluation.
    may produce images the model has never seen. Detection of
    zero-day generators is not guaranteed.
 
-4. **Calibration drift.** The default identity calibration may produce
-   over-confident or under-confident probabilities on distributions that
-   differ from the training set. The Platt scaling slot exists for this
-   reason but is not populated by default.
+4. **Calibration drift.** The fitted Platt calibration (a=0.5, b=2.9) was
+   optimized on a 110-image benchmark and may produce over-confident or
+   under-confident probabilities on distributions that differ from the
+   evaluation set.
 
 5. **No semantic understanding.** The model detects low-level forensic
    artifacts. It does not reason about scene content, physics, or context.

@@ -33,7 +33,7 @@ Based on: https://poidh.xyz/arbitrum/bounty/323
 | 1 | ≥75% balanced accuracy | ✅ | 88.33% balanced accuracy on 110-image benchmark (50 real + 60 AI from 5 generators) |
 | 2 | 65% confidence threshold | ✅ | `AI_THRESHOLD = 0.65` in content.js, Platt calibration (a=0.5, b=2.9) in models.json |
 | 3 | Clean Chrome, fresh profile | ✅ | No external dependencies, self-contained |
-| 4 | Internet disabled after model download | ✅ | Model cached in Cache Storage API |
+| 4 | Internet disabled after model download | ✅ | Model cached in Cache Storage API; image fetch uses `cache: 'force-cache'` + canvas fallback for offline inference |
 | 5 | Localhost APIs blocked | ✅ | No localhost calls anywhere in code |
 
 ## Architecture
@@ -41,7 +41,7 @@ Based on: https://poidh.xyz/arbitrum/bounty/323
 ### Key design decisions:
 
 1. **ONNX Runtime Web direct** — `.bundle` build for service worker / offscreen compatibility
-2. **5-signal hybrid pipeline** — neural + frequency + C2PA + metadata + Platt calibration
+2. **Hybrid pipeline** — neural classifier + Platt calibration + C2PA/metadata forensics. Frequency analysis implemented but disabled after benchmark showed −1% accuracy.
 3. **Offscreen document pattern** — inference survives service-worker teardowns
 4. **Custom Pillow-matching bilinear resize** — ensures preprocessing matches training
 5. **Platt calibration fitted on 110-image benchmark** — a=0.5, b=2.9, 88.33% balanced accuracy

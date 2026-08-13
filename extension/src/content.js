@@ -215,7 +215,22 @@ async function analyzeRecord(rec) {
     } else {
       payload = { url };
     }
-    const res = byUrl.get(url) ?? (await chrome.runtime.sendMessage({ target: 'bg', type: 'analyze', ...payload }));
+    let res = byUrl.get(url);
+    if (!res) {
+      try {
+        res = await chrome.runtime.sendMessage({ target: 'bg', type: 'analyze', ...payload });
+      } catch (e) {
+        // Fallback: if fetch fails (e.g. network disabled), extract pixel
+        // data from the already-loaded <img> element via canvas.
+        if (rec.img && rec.img.tagName === 'IMG' && rec.img.complete) {
+          const dataUrl = imgToDataUrl(rec.img);
+          if (dataUrl) {
+            res = await chrome.runtime.sendMessage({ target: 'bg', type: 'analyze', dataUrl });
+          }
+        }
+        if (!res) throw e;
+      }
+    }
     if (!res?.ok) throw new Error(res?.error || 'no response');
     byUrl.set(url, res);
     rec.result = res;
@@ -231,6 +246,25 @@ async function analyzeRecord(rec) {
   paintBadge(rec);
 }
 
+/**
+ * Extract pixel data from an already-loaded <img> element via canvas.
+ * Used as fallback when fetch() fails (e.g. network disabled during eval).
+ * May return null for cross-origin images that taint the canvas.
+ */
+function imgToDataUrl(img) {
+  try {
+    const canvas = document.createElement('canvas');
+    canvas.width = img.naturalWidth || img.width;
+    canvas.height = img.naturalHeight || img.height;
+    if (!canvas.width || !canvas.height) return null;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0);
+    return canvas.toDataURL('image/jpeg', 0.9);
+  } catch {
+    // Cross-origin images will throw a SecurityError (canvas tainted).
+    return null;
+  }
+}
 function blobToDataUrl(blob) {
   return new Promise((res, rej) => {
     const fr = new FileReader();

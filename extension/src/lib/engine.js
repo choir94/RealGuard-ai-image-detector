@@ -14,6 +14,15 @@
  *
  * Pipeline (explain):
  *   fetch bytes → decode bitmap → 1 base inference + 9 region inferences (3×3 grid)
+ *
+ * ── Pillow-matching bilinear resize ────────────────────────────────────────
+ * Browser canvas `drawImage` uses a vendor-specific downsampling filter that
+ * differs materially from the bilinear interpolation applied by Pillow's
+ * `transforms.Resize` during model training.  To keep inference scores
+ * faithful to the training distribution we implement a custom separable
+ * bilinear resize on raw pixel data, replicating Pillow's filter support and
+ * weight computation exactly.  See `bilinearCoefficients` and
+ * `bilinearResizeRgb` below.
  */
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -529,36 +538,185 @@ export async function ensureSession() {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
+// Pillow-matching bilinear resize
+// ────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Per-output-pixel resize coefficients for one axis.
+ *
+ * @typedef {Object} ResizeCoefficients
+ * @property {number} start     - First source pixel index that contributes.
+ * @property {number[]} weights - Normalised weights for source pixels
+ *   `[start, start+1, …, start+weights.length-1]`.
+ */
+
+/**
+ * Compute bilinear resize coefficients for a single axis, exactly matching
+ * Pillow's `transforms.Resize` (bilinear) filter behaviour.
+ *
+ * Pillow's algorithm:
+ * 1. `scale = inputSize / outputSize` (the sampling stride).
+ * 2. `filterScale = max(1, scale)` — the filter support widens when
+ *    downsampling so that each output pixel averages multiple source pixels
+ *    (anti-aliasing), but stays at 1 when upsampling (pure interpolation).
+ * 3. For each output pixel `index`, the source-space centre is
+ *    `center = (index + 0.5) * scale`.
+ * 4. Source pixels within support distance `filterScale` of the centre
+ *    contribute.  Weight = `max(0, 1 - |distance|)` where
+ *    `distance = |source + 0.5 - center| / filterScale`.
+ * 5. Weights are normalised to sum to 1.
+ *
+ * Reference: LocalLens `offscreen.ts` lines 56-115.
+ *
+ * @param {number} inputSize  - Number of source pixels along this axis.
+ * @param {number} outputSize - Number of output pixels along this axis.
+ * @returns {ResizeCoefficients[]} One entry per output pixel.
+ */
+function bilinearCoefficients(inputSize, outputSize) {
+  const scale = inputSize / outputSize;
+  const filterScale = Math.max(1, scale);
+  const support = filterScale;
+  return Array.from({ length: outputSize }, (_, index) => {
+    const center = (index + 0.5) * scale;
+    const start = Math.max(0, Math.floor(center - support + 0.5));
+    const end = Math.min(inputSize, Math.floor(center + support + 0.5));
+    const weights = [];
+    let total = 0;
+    for (let source = start; source < end; source += 1) {
+      const distance = Math.abs((source + 0.5 - center) / filterScale);
+      const weight = Math.max(0, 1 - distance);
+      weights.push(weight);
+      total += weight;
+    }
+    return { start, weights: weights.map((weight) => weight / total) };
+  });
+}
+
+/**
+ * Resize an RGBA pixel buffer to a target size using a separable bilinear
+ * filter that matches Pillow's `transforms.Resize` (bilinear) exactly.
+ *
+ * The operation is two-pass and separable:
+ *   1. **Horizontal pass** — resize each row from `sourceWidth` to
+ *      `targetWidth`, producing an intermediate buffer of size
+ *      `targetWidth × sourceHeight` (still RGBA, 4 channels per pixel).
+ *   2. **Vertical pass** — resize each column of the intermediate from
+ *      `sourceHeight` to `targetHeight`, producing the final
+ *      `targetWidth × targetHeight` buffer.
+ *
+ * Alpha is dropped — the returned buffer contains RGB only (3 bytes per
+ * pixel, tightly packed).
+ *
+ * The canvas is used *only* to obtain raw RGBA pixel data from the bitmap;
+ * all resizing is done manually in JS so that the filter kernel matches
+ * Pillow's training transforms rather than the browser's vendor-specific
+ * downsampling filter.
+ *
+ * @param {Uint8ClampedArray} sourceData   - Raw RGBA pixel data (4 bytes/pixel).
+ * @param {number} sourceWidth             - Source image width in pixels.
+ * @param {number} sourceHeight            - Source image height in pixels.
+ * @param {number} targetWidth             - Desired output width.
+ * @param {number} targetHeight            - Desired output height.
+ * @returns {Uint8ClampedArray} Resized RGB pixel data (3 bytes/pixel, packed).
+ */
+function bilinearResizeRgb(sourceData, sourceWidth, sourceHeight, targetWidth, targetHeight) {
+  // Pre-compute coefficients for both axes.
+  const xCoeffs = bilinearCoefficients(sourceWidth, targetWidth);
+  const yCoeffs = bilinearCoefficients(sourceHeight, targetHeight);
+
+  // ── Pass 1: Horizontal resize (sourceWidth → targetWidth) ────────────
+  // Intermediate buffer: targetWidth × sourceHeight, RGBA (4 channels).
+  const intermediate = new Float64Array(targetWidth * sourceHeight * 4);
+
+  for (let y = 0; y < sourceHeight; y++) {
+    const srcRowOffset = y * sourceWidth * 4;
+    const dstRowOffset = y * targetWidth * 4;
+
+    for (let ox = 0; ox < targetWidth; ox++) {
+      const { start, weights } = xCoeffs[ox];
+      const numWeights = weights.length;
+      const dstOffset = dstRowOffset + ox * 4;
+
+      // Accumulate weighted R, G, B, A for this output column.
+      let r = 0, g = 0, b = 0, a = 0;
+      for (let wi = 0; wi < numWeights; wi++) {
+        const srcX = start + wi;
+        const w = weights[wi];
+        const srcOffset = srcRowOffset + srcX * 4;
+        r += sourceData[srcOffset] * w;
+        g += sourceData[srcOffset + 1] * w;
+        b += sourceData[srcOffset + 2] * w;
+        a += sourceData[srcOffset + 3] * w;
+      }
+
+      intermediate[dstOffset] = r;
+      intermediate[dstOffset + 1] = g;
+      intermediate[dstOffset + 2] = b;
+      intermediate[dstOffset + 3] = a;
+    }
+  }
+
+  // ── Pass 2: Vertical resize (sourceHeight → targetHeight) ────────────
+  // Final buffer: targetWidth × targetHeight, RGB (3 channels, no alpha).
+  const output = new Uint8ClampedArray(targetWidth * targetHeight * 3);
+
+  for (let oy = 0; oy < targetHeight; oy++) {
+    const { start, weights } = yCoeffs[oy];
+    const numWeights = weights.length;
+
+    for (let ox = 0; ox < targetWidth; ox++) {
+      let r = 0, g = 0, b = 0;
+      for (let wi = 0; wi < numWeights; wi++) {
+        const srcY = start + wi;
+        const w = weights[wi];
+        const srcOffset = (srcY * targetWidth + ox) * 4;
+        r += intermediate[srcOffset] * w;
+        g += intermediate[srcOffset + 1] * w;
+        b += intermediate[srcOffset + 2] * w;
+      }
+
+      const dstOffset = (oy * targetWidth + ox) * 3;
+      output[dstOffset] = r;
+      output[dstOffset + 1] = g;
+      output[dstOffset + 2] = b;
+    }
+  }
+
+  return output;
+}
+
+// ────────────────────────────────────────────────────────────────────────────
 // Image preprocessing
 // ────────────────────────────────────────────────────────────────────────────
 
 /**
- * Convert raw RGBA `ImageData` to a normalised CHW float32 tensor.
+ * Convert raw RGB pixel data (3 bytes/pixel, tightly packed — as produced by
+ * {@link bilinearResizeRgb}) to a normalised CHW float32 tensor.
  *
  * Steps (mirrors PyTorch training transforms):
  *   1. Scale pixel to [0, 1]  (÷255)
  *   2. Normalise per-channel with ImageNet mean/std
- *   3. Rearrange from HWC (interleaved RGBA) → CHW (planar)
+ *   3. Rearrange from HWC (interleaved RGB) → CHW (planar)
  *
- * @param {{data: Uint8ClampedArray}} imageData - ImageData (or compatible) with `.data`.
+ * @param {Uint8ClampedArray} data - RGB pixel data (3 bytes/pixel, packed).
  * @param {[number,number,number]} mean - Per-channel mean (ImageNet default).
  * @param {[number,number,number]} std  - Per-channel std  (ImageNet default).
  * @param {number} crop - Spatial dimension (square: crop × crop).
  * @returns {ort.Tensor} Float32 tensor shaped [1, 3, crop, crop].
  */
-function imageDataToTensor({ data }, mean, std, crop) {
+function imageDataToTensor(data, mean, std, crop) {
   const size = crop * crop; // pixels per channel
   const out = new Float32Array(3 * size);
   const [m0, m1, m2] = mean;
   const [s0, s1, s2] = std;
 
   for (let i = 0; i < size; i++) {
-    const o = i * 4; // RGBA stride
+    const o = i * 3; // RGB stride (no alpha)
     // Channel 0 (R)
     out[i] = (data[o] / 255 - m0) / s0;
     // Channel 1 (G)
     out[i + size] = (data[o + 1] / 255 - m1) / s1;
-    // Channel 2 (B)  — alpha (data[o+3]) is intentionally ignored.
+    // Channel 2 (B)
     out[i + size * 2] = (data[o + 2] / 255 - m2) / s2;
   }
 
@@ -569,14 +727,17 @@ function imageDataToTensor({ data }, mean, std, crop) {
  * Full preprocessing pipeline for a decoded bitmap, mirroring the training
  * transforms:
  *
- *   Resize (shortest edge → model.resize, bilinear, high quality)
+ *   Resize (shortest edge → model.resize, Pillow bilinear)
  *     → CenterCrop (model.inputSize × model.inputSize)
  *     → [0, 1] scale
  *     → ImageNet normalise
  *     → float32 CHW tensor
  *
- * Uses a single `OffscreenCanvas` with `willReadFrequently: true` for
- * efficient pixel reads (the browser keeps the backing store in CPU memory).
+ * The bitmap is drawn to a canvas at its **original** size and the raw RGBA
+ * pixels are read via `getImageData`.  Resizing is then performed manually
+ * with {@link bilinearResizeRgb} to match Pillow's bilinear filter exactly —
+ * browser canvas `drawImage` uses a different downsampling kernel that would
+ * materially change detector scores.
  *
  * @param {ImageBitmap} bitmap - Decoded source image.
  * @returns {ort.Tensor} Preprocessed input tensor.
@@ -589,32 +750,47 @@ function preprocess(bitmap) {
   const w = bitmap.width;
   const h = bitmap.height;
 
-  // ── Resize: shortest edge → `resize` ─────────────────────────────────
+  // ── Step 1: Draw bitmap at original size, get raw RGBA pixels ────────
+  const canvas = new OffscreenCanvas(w, h);
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  ctx.drawImage(bitmap, 0, 0);
+  const sourceImageData = ctx.getImageData(0, 0, w, h);
+  const sourceData = sourceImageData.data;
+
+  // ── Step 2: Compute resize dimensions (shortest edge → `resize`) ─────
   const scale = resize / Math.min(w, h);
   const rw = Math.max(inputSize, Math.round(w * scale));
   const rh = Math.max(inputSize, Math.round(h * scale));
 
-  const canvas = new OffscreenCanvas(rw, rh);
-  const ctx = canvas.getContext('2d', { willReadFrequently: true });
-  ctx.imageSmoothingEnabled = true;
-  ctx.imageSmoothingQuality = 'high';
-  ctx.drawImage(bitmap, 0, 0, rw, rh);
+  // ── Step 3: Custom bilinear resize (RGBA → RGB, Pillow-matching) ─────
+  const resizedRgb = bilinearResizeRgb(sourceData, w, h, rw, rh);
 
-  // ── CenterCrop: extract inputSize × inputSize from centre ────────────
+  // ── Step 4: CenterCrop — extract inputSize × inputSize from centre ───
   const cx = Math.floor((rw - inputSize) / 2);
   const cy = Math.floor((rh - inputSize) / 2);
-  const imageData = ctx.getImageData(cx, cy, inputSize, inputSize);
 
-  // ── [0,1] → Normalise → CHW float32 ──────────────────────────────────
-  return imageDataToTensor(imageData, model.mean, model.std, inputSize);
+  const croppedRgb = new Uint8ClampedArray(inputSize * inputSize * 3);
+  for (let y = 0; y < inputSize; y++) {
+    const srcOffset = ((cy + y) * rw + cx) * 3;
+    const dstOffset = y * inputSize * 3;
+    croppedRgb.set(resizedRgb.subarray(srcOffset, srcOffset + inputSize * 3), dstOffset);
+  }
+
+  // ── Step 5: [0,1] → Normalise → CHW float32 tensor ──────────────────
+  return imageDataToTensor(croppedRgb, model.mean, model.std, inputSize);
 }
 
 /**
  * Preprocess a square sub-region of a bitmap for heatmap analysis.
  *
  * Cuts the region `[rx, ry, rs×rs]` from the source bitmap (clamped to
- * bounds), then resizes it directly to `inputSize × inputSize` via bilinear
- * interpolation.
+ * bounds), then resizes it directly to `inputSize × inputSize` using the
+ * custom Pillow-matching bilinear resize.
+ *
+ * The region is extracted from a canvas at the original source resolution
+ * (raw RGBA via `getImageData`), then resized with
+ * {@link bilinearResizeRgb} — **not** via canvas `drawImage`, which uses a
+ * different downsampling kernel.
  *
  * @param {ImageBitmap} bitmap - Source image.
  * @param {number} rx - Region top-left X (source pixels).
@@ -626,21 +802,25 @@ function preprocessRegion(bitmap, rx, ry, rs) {
   const model = state.model;
   const inputSize = model.inputSize;
 
-  // Clamp region to bitmap bounds to avoid drawImage artefacts.
+  // Clamp region to bitmap bounds.
   const sx = Math.max(0, Math.floor(rx));
   const sy = Math.max(0, Math.floor(ry));
   const sw = Math.min(Math.floor(rs), bitmap.width - sx);
   const sh = Math.min(Math.floor(rs), bitmap.height - sy);
 
-  const canvas = new OffscreenCanvas(inputSize, inputSize);
+  // ── Step 1: Extract region at original resolution, get raw RGBA ──────
+  const canvas = new OffscreenCanvas(sw, sh);
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
-  ctx.imageSmoothingEnabled = true;
-  ctx.imageSmoothingQuality = 'high';
-  // Source rect → full canvas (effectively resize + crop in one draw).
-  ctx.drawImage(bitmap, sx, sy, sw, sh, 0, 0, inputSize, inputSize);
+  // Draw only the source sub-region to the canvas (1:1, no resize here).
+  ctx.drawImage(bitmap, sx, sy, sw, sh, 0, 0, sw, sh);
+  const sourceImageData = ctx.getImageData(0, 0, sw, sh);
+  const sourceData = sourceImageData.data;
 
-  const imageData = ctx.getImageData(0, 0, inputSize, inputSize);
-  return imageDataToTensor(imageData, model.mean, model.std, inputSize);
+  // ── Step 2: Custom bilinear resize (RGBA → RGB, Pillow-matching) ─────
+  const resizedRgb = bilinearResizeRgb(sourceData, sw, sh, inputSize, inputSize);
+
+  // ── Step 3: [0,1] → Normalise → CHW float32 tensor ──────────────────
+  return imageDataToTensor(resizedRgb, model.mean, model.std, inputSize);
 }
 
 // ────────────────────────────────────────────────────────────────────────────

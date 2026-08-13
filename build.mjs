@@ -24,6 +24,7 @@ const STATIC_FILES = [
   ['extension/manifest.json', 'extension/dist/manifest.json'],
   ['extension/static/content.css', 'extension/dist/content.css'],
   ['extension/static/popup.html', 'extension/dist/popup.html'],
+  ['extension/static/offscreen.html', 'extension/dist/offscreen.html'],
   ['extension/static/lab.html', 'extension/dist/lab.html'],
   ['extension/static/models.json', 'extension/dist/models.json'],
   ['LICENSE', 'extension/dist/LICENSE'],
@@ -93,7 +94,24 @@ async function build() {
   });
   console.log('  ✓ popup.js');
 
-  // 4. Bundle lab.js
+  // 4. Bundle offscreen.js (hosts ONNX inference engine in offscreen document)
+  const offscreenEntry = path.join(EXT_SRC, 'src', 'offscreen.js');
+  if (fs.existsSync(offscreenEntry)) {
+    await esbuild.build({
+      entryPoints: [offscreenEntry],
+      bundle: true,
+      format: 'esm',
+      target: 'chrome121',
+      outfile: path.join(DIST, 'offscreen.js'),
+      sourcemap: false,
+      minify: false,
+      legalComments: 'none',
+      logLevel: 'info',
+    });
+    console.log('  ✓ offscreen.js (bundled)');
+  }
+
+  // 5. Bundle lab.js
   const labEntry = path.join(EXT_SRC, 'src', 'lab.js');
   if (fs.existsSync(labEntry)) {
     await esbuild.build({

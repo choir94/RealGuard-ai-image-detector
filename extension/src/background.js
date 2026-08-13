@@ -144,6 +144,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         );
         break;
       case 'SET_CALIBRATION':
+        await chrome.storage.local.set({ calibration: msg.calibration });
         await ensureOffscreenDocument();
         sendResponse(
           await chrome.runtime.sendMessage({
@@ -177,6 +178,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         );
         break;
       case 'set-calibration':
+        await chrome.storage.local.set({ calibration: msg.calibration });
         await ensureOffscreenDocument();
         sendResponse(
           await chrome.runtime.sendMessage({

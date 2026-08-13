@@ -9,11 +9,12 @@
     "build": "node build.mjs",
     "watch": "node build.mjs --watch",
     "zip": "node build.mjs --zip",
-    "test": "node --test tests/**/*.test.mjs"
+    "test": "node --test tests/**/*.test.mjs",
+    "test:e2e": "node e2e/extension-test.mjs",
+    "calibrate": "python3 eval/calibrate.py"
   },
   "devDependencies": {
-    "esbuild": "0.25.0",
-    "puppeteer-core": "^25.6.0"
+    "esbuild": "0.25.0"
   },
   "dependencies": {
     "onnxruntime-web": "1.21.0"

@@ -128,7 +128,7 @@ async function build() {
     console.log('  ✓ lab.js');
   }
 
-  // 5. Copy static files
+  // 6. Copy static files
   for (const [src, dest] of STATIC_FILES) {
     cp(path.join(ROOT, src), path.join(ROOT, dest));
     console.log(`  ✓ ${path.basename(dest)}`);
@@ -143,7 +143,7 @@ async function build() {
     }
   }
 
-  // 7. Copy ONNX Runtime WASM + JSEP glue files
+  // 8. Copy ONNX Runtime WASM + JSEP glue files
   const ortFiles = [
     ['ort-wasm-simd-threaded.jsep.wasm', 'ort-wasm-simd-threaded.jsep.wasm'],
     ['ort-wasm-simd-threaded.jsep.mjs', 'ort-wasm-simd-threaded.jsep.mjs'],

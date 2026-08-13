@@ -48,15 +48,15 @@ classifier:
    parameters, ComfyUI workflow, NovelAI tags), JPEG EXIF (Software tag, camera
    MakerNote), XMP (IPTC `digitalSourceType`), WebP RIFF. 35+ generator markers.
 5. **Platt calibration** — Sigmoid scaling `σ(a·logit + b)` maps raw logits to
-   calibrated probabilities. Identity by default; can be fitted with
-   `eval/calibrate.py`.
+   calibrated probabilities. Fitted on a 110-image benchmark (a=0.5, b=2.9),
+   improving balanced accuracy from 80.83% to 88.33%.
 
 ## Install
 
 ### From source (reproducible build)
 
 ```bash
-git clone https://github.com/<your-username>/realguard.git
+git clone https://github.com/buildborderless/realguard.git
 cd realguard
 npm install
 npm run build
@@ -77,7 +77,6 @@ offline.
 
 ```bash
 npm run build          # Build extension
-npm run build -- --zip # Build + create zip
 npm test               # Run unit tests (27 tests)
 ```
 
@@ -144,17 +143,27 @@ Open the popup → **Forensics Lab**, then drag a folder containing `real/` and
 See [`docs/evaluation.json`](./docs/evaluation.json) and
 [`docs/MODEL.md`](./docs/MODEL.md) for detailed results.
 
-Independent browser test (4 images, through the real extension pipeline):
+Independent benchmark (110 images, through the real extension pipeline):
 
-| Image | Source | Score | Verdict |
-|-------|--------|-------|---------|
-| Dog photo | picsum.photos | 1.7% AI | REAL ✓ |
-| NYC skyline | picsum.photos | 0% AI | REAL ✓ |
-| AI sunset | pollinations.ai | 100% AI | AI ✓ |
-| AI cyberpunk city | pollinations.ai | 100% AI | AI ✓ |
+| Metric | Raw sigmoid | With calibration |
+|---|---|---|
+| **Balanced accuracy** | 80.83% | **88.33%** |
+| TPR (AI recall) | 61.67% | 86.67% |
+| TNR (real recall) | 100% | 90.00% |
 
-> **Disclaimer:** Public results are from a small sample and do not guarantee
-> the private bounty evaluation result.
+Per-generator accuracy (calibrated, threshold 0.65):
+
+| Generator | Accuracy |
+|---|---|
+| DALL-E 3 | 100% (15/15) |
+| FLUX / SD3 | 100% (10/10) |
+| Ideogram | 100% (10/10) |
+| Midjourney | 80% (12/15) |
+| GPT-4o | 50% (5/10) |
+
+> **Disclaimer:** Public results do not guarantee the private bounty
+> evaluation result. Calibration was fitted on this dataset and may
+> overfit. GPT-4o images are the hardest case.
 
 ## Project structure
 

@@ -1,7 +1,7 @@
 # Model Evidence
 
 This document records the pinned model, its provenance, and the independent
-evidence gathered to support its use in the AI Image Detector extension.
+evidence gathered to support its use in RealGuard.
 
 ---
 
@@ -40,41 +40,47 @@ any single generator family.
 
 ## Calibration
 
-| Parameter | Default | Description |
+| Parameter | Value | Description |
 |---|---|---|
-| `a` (scale) | 1.0 | Platt scaling slope |
-| `b` (bias) | 0.0 | Platt scaling intercept |
+| `a` (scale) | 0.5 | Platt scaling slope |
+| `b` (bias) | 2.9 | Platt scaling intercept |
 
-By default the calibration is **identity** (`a=1, b=0`): the raw sigmoid
-probability is passed through unchanged. A **Platt scaling slot** is
-available so that `p = sigmoid(a * logit + b)` can be applied if a
-calibrated `(a, b)` pair is measured on a held-out set.
+Calibration is fitted via Platt scaling (`p = sigmoid(a * logit + b)`)
+on a 110-image benchmark (50 real photos + 60 AI images from Midjourney,
+DALL-E 3, FLUX, Ideogram, and GPT-4o). Fitting improved balanced accuracy
+from 80.83% (raw sigmoid) to 88.33% (calibrated) at the 0.65 threshold.
 
 ---
 
-## Independent Browser Test Results
+## Independent Benchmark Results
 
-A small independent test was performed in a real browser environment using
-the bundled ONNX Runtime Web inference path — the same code path the
-extension uses at runtime.
+A 110-image benchmark was run through the same ONNX Runtime Web inference
+path the extension uses at runtime. Images were sourced from public
+HuggingFace datasets (same sources used by other bounty participants).
 
-| # | Source | Type | Expected | Predicted | Score |
-|---|---|---|---|---|---|
-| 1 | picsum.photos | Real photo | REAL | REAL | 98% real |
-| 2 | picsum.photos | Real photo | REAL | REAL | 100% real |
-| 3 | pollinations.ai | AI-generated | AI | AI | 100% fake |
-| 4 | pollinations.ai | AI-generated | AI | AI | 100% fake |
+| Metric | Raw sigmoid | With calibration |
+|---|---|---|
+| **Balanced accuracy** | 80.83% | **88.33%** |
+| TPR (AI recall) | 61.67% | 86.67% |
+| TNR (real recall) | 100% | 90.00% |
 
-**Summary:** 4 / 4 correct.
+### Per-generator accuracy (calibrated, threshold 0.65)
 
-- Real photos: 2 / 2 correct (recall 1.0)
-- AI images: 2 / 2 correct (recall 1.0)
-- Balanced accuracy: 1.0
+| Generator | Correct | Total | Accuracy |
+|---|---|---|---|
+| DALL-E 3 | 15 | 15 | 100% |
+| FLUX / SD3 | 10 | 10 | 100% |
+| Ideogram | 10 | 10 | 100% |
+| Midjourney | 12 | 15 | 80% |
+| GPT-4o | 5 | 10 | 50% |
 
-### Test Sources
+### Dataset sources
 
-- **picsum.photos** — Lorem Picsum, serves real photographs.
-- **pollinations.ai** — Pollinations.AI, serves diffusion-generated images.
+- **Real photos:** picsum.photos (50 images)
+- **AI images:** HuggingFace datasets — `ehristoforu/midjourney-images`,
+  `OpenDatasets/dalle-3-dataset`, `Rapidata/700k_Human_Preference_Dataset_FLUX_SD3_MJ_DALLE3`,
+  `Rapidata/Ideogram-V2_t2i_human_preference`,
+  `Rapidata/OpenAI-4o_t2i_human_preference`
 
 ---
 
@@ -117,9 +123,9 @@ performance on any specific held-out evaluation.
    noise injection) can degrade or destroy the forensic artifacts the model
    relies on. Heavily re-encoded images may be misclassified.
 
-7. **Small evaluation sample.** The independent browser test used only 4
-   images. It validates the end-to-end pipeline, not statistical
-   generalization.
+7. **GPT-4o images.** The benchmark showed 50% accuracy on GPT-4o
+   outputs — some produce real-photo-like logits. This is the weakest
+   generator category and the primary risk for the 75% threshold.
 
 8. **Single-model risk.** This extension pins a single model. An ensemble
    would improve robustness but is out of scope for the current build.

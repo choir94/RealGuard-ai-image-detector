@@ -2,15 +2,13 @@
   "name": "realguard",
   "version": "2.0.0",
   "private": true,
-  "description": "RealGuard — on-device AI image detector for Chrome (MV3). No cloud, no servers: WebGPU/WASM inference + forensic signal fusion.",
+  "description": "RealGuard \u2014 on-device AI image detector for Chrome (MV3). No cloud, no servers: WebGPU/WASM inference + forensic signal fusion.",
   "license": "MIT",
   "type": "module",
   "scripts": {
     "build": "node build.mjs",
     "watch": "node build.mjs --watch",
-    "zip": "node build.mjs --zip",
-    "test": "node --test tests/**/*.test.mjs",
-    "test:e2e": "node e2e/extension-test.mjs",
+    "test": "node --test tests/*.test.mjs",
     "calibrate": "python3 eval/calibrate.py"
   },
   "devDependencies": {

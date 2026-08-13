@@ -1,13 +1,20 @@
+#!/usr/bin/env python3
+"""Run ONNX inference on all images in eval/data/{real,ai}/ and save results.
 
-import os, json, sys, time
+Usage:
+    python eval/run_benchmark.py
+"""
+import os, json, sys
+from pathlib import Path
 import numpy as np
 from PIL import Image
 import onnxruntime as ort
 
-MODEL_PATH = "/tmp/model.onnx"
-DATA_DIR = "/root/ai-image-detector/eval/data"
+ROOT = Path(__file__).resolve().parent.parent
+MODEL_PATH = Path(os.environ.get("MODEL_PATH", "/tmp/model.onnx"))
+DATA_DIR = ROOT / "eval" / "data"
 INPUT_SIZE = 384
-RESIZE = 440
+RESIZE_SHORT_SIDE = 440  # resize so min(w,h) = 440, then center-crop to 384
 MEAN = np.array([0.485, 0.456, 0.406], dtype=np.float32)
 STD = np.array([0.229, 0.224, 0.225], dtype=np.float32)
 
@@ -57,7 +64,7 @@ def preprocess(img):
     img_arr = np.array(img, dtype=np.float32)  # HxWx3
     
     # Compute resize dimensions
-    scale = RESIZE / min(w, h)
+    scale = RESIZE_SHORT_SIDE / min(w, h)
     rw = max(INPUT_SIZE, round(w * scale))
     rh = max(INPUT_SIZE, round(h * scale))
     
@@ -98,7 +105,7 @@ def main():
         dir_path = os.path.join(DATA_DIR, label)
         if not os.path.exists(dir_path):
             continue
-        files = sorted([f for f in os.listdir(dir_path) if f.endswith(".jpg") and os.path.getsize(os.path.join(dir_path, f)) > 5000])
+        files = sorted([f for f in os.listdir(dir_path) if f.endswith(".jpg") and os.path.getsize(os.path.join(dir_path, f)) > 5000])  # skip tiny/corrupt files
         
         for fname in files:
             fpath = os.path.join(dir_path, fname)
@@ -148,4 +155,6 @@ def main():
         ba = (tr + fr) / 2
         print(f"  t={t:.2f}: TPR={tr:.4f} TNR={fr:.4f} BA={ba*100:.2f}%")
 
-main()
+
+if __name__ == "__main__":
+    main()

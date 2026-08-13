@@ -1,6 +1,6 @@
 // Unit tests for the frequency-domain analysis module.
 // Tests the pure functions (no OffscreenCanvas needed) and the fusion logic.
-// Run: node --test tests/**/*.test.mjs
+// Run: node --test tests/*.test.mjs
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 

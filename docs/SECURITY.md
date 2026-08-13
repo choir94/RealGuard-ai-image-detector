@@ -1,7 +1,7 @@
 # Security Policy
 
-This document describes the security measures built into the AI Image
-Detector extension and how to report vulnerabilities.
+This document describes the security measures built into the RealGuard
+extension and how to report vulnerabilities.
 
 ---
 
@@ -109,8 +109,8 @@ from injecting new logic at runtime even if they compromise a CDN.
 
 ## 7. Reporting Vulnerabilities
 
-We take security reports seriously. If you believe you have found a
-security vulnerability in the AI Image Detector extension, please report
+If you believe you have found
+a security vulnerability in RealGuard, please report
 it responsibly.
 
 ### How to Report

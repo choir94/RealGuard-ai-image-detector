@@ -10,6 +10,7 @@
 // Prerequisites:
 //   - npm run build (extension/dist/ must exist)
 //   - A Chrome/Chromium binary (set CHROME_PATH env or auto-detect)
+//   - playwright installed: npm install -D playwright
 //
 // Usage:
 //   node e2e/extension-test.mjs
@@ -20,7 +21,6 @@
 import { existsSync, mkdirSync, rmSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { spawn } from 'node:child_process';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
@@ -50,10 +50,10 @@ function findChrome() {
     return process.env.CHROME_PATH;
   }
   const candidates = [
-    '/root/.cloakbrowser/chromium-146.0.7680.177.5/chrome',
     '/usr/bin/google-chrome',
     '/usr/bin/chromium',
     '/usr/bin/chromium-browser',
+    '/snap/bin/chromium',
     '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
     '/opt/homebrew/bin/chromium',
   ];
@@ -103,7 +103,8 @@ async function runE2E() {
   }
 
   const { chromium } = playwright;
-  const results = [];
+  let passed = 0;
+  let failed = 0;
 
   try {
     const context = await chromium.launchPersistentContext(userData, {
@@ -123,8 +124,7 @@ async function runE2E() {
     const workers = context.serviceWorkers;
 
     if (workers.length === 0) {
-      console.error('✘ No service worker registered');
-      process.exit(1);
+      throw new Error('No service worker registered');
     }
 
     const extId = workers[0].url.split('://')[1].split('/')[0];
@@ -173,8 +173,7 @@ async function runE2E() {
     }
 
     if (!ready) {
-      console.error('✘ Engine did not become ready');
-      process.exit(1);
+      throw new Error('Engine did not become ready');
     }
 
     // Wait for content script to process all images
@@ -204,9 +203,6 @@ async function runE2E() {
     });
 
     // Verify results
-    let passed = 0;
-    let failed = 0;
-
     console.log('\n  ┌─ Results ──────────────────────────────────────────────────');
     console.log('  │ ID       │ Expected │ Verdict │ Score   │ Status');
     console.log('  ├──────────┼──────────┼─────────┼─────────┼───────');
@@ -222,8 +218,6 @@ async function runE2E() {
       console.log(
         `  │ ${img.id.padEnd(8)} │ ${expected.padEnd(8)} │ ${(actual || 'none').padEnd(7)} │ ${(img.score || 'none').padEnd(7)} │ ${ok ? '✓ pass' : '✘ FAIL'}`,
       );
-
-      results.push({ ...img, expected, passed: ok });
     }
     console.log('  └────────────────────────────────────────────────────────────');
 

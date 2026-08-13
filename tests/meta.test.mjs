@@ -1,5 +1,5 @@
 // Unit tests for the metadata forensics module — synthetic fixtures built
-// byte-by-byte, no image files needed. Run: node --test tests/
+// byte-by-byte, no image files needed. Run: node --test tests/*.test.mjs
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 

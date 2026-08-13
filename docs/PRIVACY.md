@@ -1,6 +1,6 @@
 # Privacy Policy
 
-The AI Image Detector extension is designed so that **detection happens
+The RealGuard extension is designed so that **detection happens
 entirely on your device**. Your images are not uploaded to any server for
 analysis.
 

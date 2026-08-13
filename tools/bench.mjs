@@ -113,16 +113,16 @@ try {
 const scored = rows.filter((r) => r.score != null);
 const ai = scored.filter((r) => r.label === 'ai');
 const real = scored.filter((r) => r.label === 'real');
-const tpr = ai.filter((r) => r.score >= THRESHOLD).length / ai.length;
-const tnr = real.filter((r) => r.score < THRESHOLD).length / real.length;
+const tpr = ai.length > 0 ? ai.filter((r) => r.score >= THRESHOLD).length / ai.length : 0;
+const tnr = real.length > 0 ? real.filter((r) => r.score < THRESHOLD).length / real.length : 0;
 console.log(`\n=== browser-pipeline results (threshold ${THRESHOLD}) ===`);
 console.log(`scored ${scored.length}/${rows.length} (${rows.length - scored.length} errors)`);
 console.log(`TPR ${(tpr * 100).toFixed(2)}%  TNR ${(tnr * 100).toFixed(2)}%  balanced accuracy ${((tpr + tnr) * 50).toFixed(2)}%`);
 
 let best = { t: 0, ba: 0 };
 for (let t = 0.05; t < 1; t += 0.01) {
-  const tp = ai.filter((r) => r.score >= t).length / ai.length;
-  const tn = real.filter((r) => r.score < t).length / real.length;
+  const tp = ai.length > 0 ? ai.filter((r) => r.score >= t).length / ai.length : 0;
+  const tn = real.length > 0 ? real.filter((r) => r.score < t).length / real.length : 0;
   const ba = (tp + tn) / 2;
   if (ba > best.ba) best = { t, ba };
 }

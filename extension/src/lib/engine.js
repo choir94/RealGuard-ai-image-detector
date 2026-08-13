@@ -57,6 +57,7 @@ const LRU_MAX = 1000;
 /** Ring-buffer sizes for diagnostic logs and timing samples. */
 const LOG_MAX = 50;
 const TIMINGS_MAX = 50;
+const DEBUG = false;
 
 // ────────────────────────────────────────────────────────────────────────────
 // State
@@ -111,7 +112,7 @@ function dlog(...args) {
     .join(' ');
   state.log.push(`[${ts}] ${msg}`);
   if (state.log.length > LOG_MAX) state.log.shift();
-  console.log('[engine]', ...args);
+  if (DEBUG) console.log('[engine]', ...args);
 }
 
 // ────────────────────────────────────────────────────────────────────────────

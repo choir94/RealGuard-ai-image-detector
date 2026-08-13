@@ -13,6 +13,7 @@ Usage:
   python eval/calibrate.py [--csv results/browser_scores.csv] [--apply]
 """
 import argparse
+import csv
 import json
 from pathlib import Path
 
@@ -36,11 +37,9 @@ def main() -> None:
     ap.add_argument("--seed", type=int, default=7)
     args = ap.parse_args()
 
-    import csv as csvmod
-
     logits, labels = [], []
     with open(args.csv) as fh:
-        for row in csvmod.DictReader(fh):
+        for row in csv.DictReader(fh):
             if row["logit"]:
                 logits.append(float(row["logit"]))
                 labels.append(1 if row["label"] == "ai" else 0)
@@ -55,6 +54,7 @@ def main() -> None:
     # Platt scaling on the fit half
     from sklearn.linear_model import LogisticRegression
 
+    # C=1e6 approximates no regularization (not all sklearn versions support penalty=None)
     lr = LogisticRegression(C=1e6)
     lr.fit(logits[fit_idx, None], labels[fit_idx])
     a = float(lr.coef_[0][0])

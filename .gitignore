@@ -1,7 +1,8 @@
 node_modules/
-dist/
-lib/transformers.min.js
-icons/*.png
+extension/dist/
 *.zip
 .DS_Store
 Thumbs.db
+tools/browsers/
+tools/.venv/
+eval/data/

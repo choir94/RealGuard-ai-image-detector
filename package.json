@@ -1,14 +1,21 @@
 {
-  "name": "realguard-ai-image-detector",
-  "version": "1.0.0",
-  "description": "Chrome Extension MV3 that detects AI-generated images 100% locally in the browser",
+  "name": "realguard",
+  "version": "2.0.0",
+  "private": true,
+  "description": "RealGuard — on-device AI image detector for Chrome (MV3). No cloud, no servers: WebGPU/WASM inference + forensic signal fusion.",
   "license": "MIT",
+  "type": "module",
   "scripts": {
-    "build": "node scripts/build.js",
-    "dev": "node scripts/build.js --watch"
+    "build": "node build.mjs",
+    "watch": "node build.mjs --watch",
+    "zip": "node build.mjs --zip",
+    "test": "node --test tests/**/*.test.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.0",
+    "puppeteer-core": "^25.6.0"
   },
   "dependencies": {
-    "@huggingface/transformers": "^4.0.0"
-  },
-  "devDependencies": {}
+    "onnxruntime-web": "1.21.0"
+  }
 }

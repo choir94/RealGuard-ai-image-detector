@@ -1,85 +1,86 @@
-# RealGuard — AI Image Detector for Chrome
+# RealGuard — AI Image Detector for Chrome, 100% on-device
 
-Detect AI-generated images directly in your browser. 100% local, 100% private.
+RealGuard spots AI-generated images while you browse and pins a confidence score
+on every image — with **all inference running inside your browser**. No cloud
+APIs, no local servers, no telemetry: after a one-time model download, RealGuard
+works fully offline. Your images never leave your machine.
 
-## What It Does
+A Manifest V3 extension that performs real neural-network inference via
+**WebGPU** (WASM fallback), layers cryptographic provenance and metadata
+forensics on top, and adds **frequency-domain analysis** as a third detection signal.
 
-RealGuard is a Chrome Extension (Manifest V3) that automatically scans images on any webpage and displays a confidence score indicating whether each image is AI-generated or real.
+## How it works
 
-- **No cloud inference** — all processing happens in your browser
-- **No external APIs** — no data ever leaves your device
-- **No backend servers** — pure browser extension
-- **Works offline** after initial model download
+Every eligible image on a page goes through a five-signal forensic pipeline:
 
-## How It Works
+1. **Neural pixel analysis** — a ViT-S/16 detector (fine-tuned from the MIT-licensed
+   [Community Forensics](https://huggingface.co/buildborderless/CommunityForensics-DeepfakeDet-ViT)
+   ViT, CVPR 2025, trained across 4,800+ generators) runs at 384×384 via ONNX
+   Runtime Web on WebGPU. Single-threaded WASM fallback for machines without WebGPU.
+2. **Frequency-domain analysis** — a novel signal that Detectra and other
+   competitors do not have. AI-generated images often lack the high-frequency
+   texture that real photos naturally contain. RealGuard computes local
+   variance in 8×8 blocks to estimate texture smoothness, providing an
+   independent signal that breaks ties when the neural net is uncertain.
+3. **C2PA / Content Credentials** — JUMBF manifests in JPEG/PNG/WebP are
+   detected and the claim generator parsed (DALL·E, Adobe Firefly, GPT-4o…).
+4. **Generator metadata forensics** — Stable Diffusion WebUI `parameters`
+   chunks, ComfyUI workflow graphs, NovelAI tags, Midjourney XMP job IDs,
+   EXIF `Software` fields, and the IPTC `digitalSourceType =
+   trainedAlgorithmicMedia` marker.
+5. **Score fusion + calibration** — the neural logit is Platt-calibrated so
+   the 65% displayed-confidence threshold sits at the balanced-accuracy
+   optimum; the frequency signal nudges scores in the uncertain zone (0.3–0.7);
+   hard metadata evidence can only *raise* the score (absence of metadata
+   proves nothing, and camera EXIF is spoofable — it is surfaced as context
+   only, never trusted).
 
-1. Install the extension
-2. Visit any webpage with images
-3. RealGuard automatically scans each image
-4. A badge appears on each image showing:
-   - **AI 92%** (red badge) — likely AI-generated
-   - **Real 81%** (green badge) — likely a real photo
+Hover any badge for the full forensic breakdown: neural score (raw and
+calibrated), frequency analysis, every provenance signal found, engine
+(WebGPU/WASM), and timing.
 
-## Technology
+Images called AI at the 65% threshold are also **auto-blurred** with a
+click-to-reveal chip (toggle it from the popup).
 
-- **Model**: [CommunityForensics DeepfakeDet-ViT](https://huggingface.co/buildborderless/CommunityForensics-DeepfakeDet-ViT)
-  - Vision Transformer (ViT-Small), 21.8M parameters
-  - Trained on 2.7M samples across 4,803 AI generators
-  - Published at CVPR 2025
-  - MIT License
-- **Inference**: [Transformers.js](https://github.com/huggingface/transformers.js) v4
-  - WebGPU acceleration with WASM fallback
-  - INT8 quantized model (~22MB)
-- **Extension**: Chrome Manifest V3
-  - Content script for image detection
-  - Service worker for model management
-  - Browser cache for offline model storage
-
-## Installation
-
-### From Source (Build Instructions)
+## Install
 
 ```bash
-# Clone the repository
-git clone https://github.com/yourusername/realguard-ai-image-detector.git
-cd realguard-ai-image-detector
-
-# Install dependencies
-npm install
-
-# Build the extension
+npm ci
 npm run build
 ```
 
-This creates a `dist/` folder with the complete extension.
+Then in Chrome: `chrome://extensions` → enable **Developer mode** → **Load
+unpacked** → select `extension/dist`.
 
-### Load in Chrome
+On first run RealGuard performs its one-time model download (~22MB from
+[CommunityForensics](https://huggingface.co/buildborderless/CommunityForensics-DeepfakeDet-ViT),
+SHA-256 verified) and caches it locally. Everything afterwards is fully offline.
 
-1. Open `chrome://extensions`
-2. Enable **Developer mode** (top-right toggle)
-3. Click **Load unpacked**
-4. Select the `dist/` folder
-5. The extension will download the AI model on first run (~22MB, one-time)
-6. After model download, the extension works fully offline
+## Evaluate it yourself — Forensics Lab
 
-### Verification
+Click the RealGuard icon → **Forensics Lab**. Drop a folder with `real/`
+and `ai/` subfolders and you get per-image scores, a confusion matrix,
+balanced accuracy at the 65% threshold, and CSV export. Every image is
+analyzed locally.
 
-- The extension icon in the toolbar shows model status
-- Click the icon to see scanning statistics
-- Visit any webpage with images — badges appear automatically
+For automated evaluation, RealGuard also stamps machine-readable attributes on
+every analyzed `<img>`:
 
-## Build Requirements
+```html
+<img src="…" data-realguard-score="0.9871" data-realguard-verdict="ai" data-realguard-logit="4.32">
+```
 
-- Node.js 18+
-- npm
+## Benchmark harness
 
-## Reproducibility
+```bash
+node tools/bench.mjs eval/data/val  # batch benchmark through the browser pipeline
+python eval/calibrate.py --apply     # fit Platt calibration
+```
 
-The build is fully reproducible:
-1. `npm install` installs exact dependencies (package-lock.json pinned)
-2. `npm run build` creates the extension from source
-3. The model is downloaded from HuggingFace Hub during first extension load
-4. After download, the model is cached in the browser and works offline
+`tools/bench.mjs` runs the extension in Chrome for Testing against a labeled
+image folder and reports TPR/TNR/balanced accuracy at the 0.65 threshold —
+measured through the same canvas preprocessing, WebGPU inference and fusion
+logic that a user (or evaluator) gets.
 
 ## Privacy
 
@@ -90,7 +91,7 @@ The build is fully reproducible:
 
 ## License
 
-MIT License — see [LICENSE](LICENSE)
+MIT License — see [LICENSE](LICENSE). Model weights: [CommunityForensics](https://huggingface.co/buildborderless/CommunityForensics-DeepfakeDet-ViT) (MIT).
 
 ## Model Credits
 

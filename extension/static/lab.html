@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>RealGuard — Forensics Lab</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font: 14px/1.5 -apple-system, system-ui, sans-serif; background: #0f1117; color: #e5e9f0; padding: 24px; max-width: 900px; margin: 0 auto; }
+h1 { font-size: 22px; margin-bottom: 4px; }
+.subtitle { color: #8b93a3; margin-bottom: 20px; }
+#drop-zone { border: 2px dashed #363c49; border-radius: 12px; padding: 40px; text-align: center; color: #8b93a3; margin-bottom: 16px; cursor: pointer; transition: .2s; }
+#drop-zone.over { border-color: #2563eb; background: rgba(37,99,235,.05); }
+#folder-input { display: none; }
+.progress-row { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+progress { flex: 1; height: 6px; border: 0; border-radius: 3px; background: #2a2f3a; }
+progress::-webkit-progress-bar { background: #2a2f3a; border-radius: 3px; }
+progress::-webkit-progress-value { background: #2563eb; border-radius: 3px; }
+#progress-text { font-size: 12px; color: #8b93a3; white-space: nowrap; }
+#log { background: #111318; border: 1px solid rgba(255,255,255,.06); border-radius: 8px; padding: 12px; font: 12px/1.4 monospace; white-space: pre-wrap; max-height: 300px; overflow: auto; margin-bottom: 16px; display: none; }
+#log:not(:empty) { display: block; }
+#results { display: none; }
+table { width: 100%; border-collapse: collapse; font-size: 12px; }
+th { text-align: left; padding: 8px; border-bottom: 2px solid #2a2f3a; color: #8b93a3; text-transform: uppercase; font-size: 10px; }
+td { padding: 6px 8px; border-bottom: 1px solid rgba(255,255,255,.04); }
+td.ai { color: #f43f5e; font-weight: 600; }
+td.real { color: #34d399; font-weight: 600; }
+#export { margin-top: 12px; padding: 8px 16px; border: 0; border-radius: 8px; background: #2563eb; color: #fff; font: 600 12px system-ui; cursor: pointer; }
+</style>
+</head>
+<body>
+<h1>🔬 RealGuard Forensics Lab</h1>
+<p class="subtitle">Drop a folder with <code>real/</code> and <code>ai/</code> subfolders to evaluate the detector. All analysis runs locally — no images leave your browser.</p>
+<div id="drop-zone" onclick="document.getElementById('folder-input').click()">
+  <p>📁 Click to select a folder, or drag & drop here</p>
+  <p style="font-size:12px;margin-top:4px">Expects: <code>real/</code> and <code>ai/</code> subdirectories with images</p>
+</div>
+<input type="file" id="folder-input" webkitdirectory multiple>
+<div class="progress-row" id="progress-row" style="display:none">
+  <progress id="progress" value="0" max="1"></progress>
+  <span id="progress-text">0/0</span>
+</div>
+<pre id="log"></pre>
+<div id="results">
+  <table>
+    <thead><tr><th>Image</th><th>Label</th><th>Score</th><th>Verdict</th><th>✓/✗</th></tr></thead>
+    <tbody id="results-body"></tbody>
+  </table>
+  <button id="export">Export CSV</button>
+</div>
+<script type="module" src="lab.js"></script>
+</body>
+</html>

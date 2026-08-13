@@ -449,10 +449,11 @@ async function createSession() {
   // Also set wasmPaths so any auxiliary lookups resolve to the extension.
   ort.env.wasm.wasmPaths = chrome.runtime.getURL('vendor/ort/');
 
-  // 4. Service workers have no Worker constructor → single-threaded WASM.
-  if (typeof document === 'undefined') {
+  // 4. Single-threaded WASM for offscreen documents and service workers.
+  //    Both lack a Worker constructor available to ORT's threaded WASM build.
+  if (typeof Worker === 'undefined') {
     ort.env.wasm.numThreads = 1;
-    dlog('Service worker detected: numThreads = 1');
+    dlog('No Worker constructor: numThreads = 1');
   }
 
   const inputSize = model.inputSize;
@@ -461,7 +462,7 @@ async function createSession() {
   let session = null;
   let engine = 'wasm';
 
-  // 5a. Try WebGPU
+  // 5a. Try WebGPU (offscreen documents have navigator.gpu; SWs may not)
   if (typeof navigator !== 'undefined' && navigator.gpu) {
     try {
       const adapter = await navigator.gpu.requestAdapter({
@@ -480,6 +481,12 @@ async function createSession() {
       }
     } catch (e) {
       dlog(`WebGPU init failed (${e.message}), falling back to WASM`);
+      // WebGPU failure can corrupt ORT's internal WASM init state.
+      // Reset the wasm proxy so the WASM fallback starts fresh.
+      try {
+        ort.env.wasm.proxy = false;
+        ort.env.wasm.wasmBinary = await getWasmBinary();
+      } catch (_) { /* ignore — already set */ }
       session = null;
     }
   }

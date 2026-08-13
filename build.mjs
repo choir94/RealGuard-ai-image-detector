@@ -143,15 +143,22 @@ async function build() {
     }
   }
 
-  // 7. Copy ONNX Runtime WASM binary
-  const ortWasmSrc = path.join(NODE_MODULES, 'onnxruntime-web', 'dist', 'ort-wasm-simd-threaded.jsep.wasm');
-  const ortWasmDest = path.join(DIST, 'vendor', 'ort', 'ort-wasm-simd-threaded.jsep.wasm');
-  ensureDir(path.dirname(ortWasmDest));
-  if (fs.existsSync(ortWasmSrc)) {
-    fs.copyFileSync(ortWasmSrc, ortWasmDest);
-    console.log(`  ✓ vendor/ort/ort-wasm-simd-threaded.jsep.wasm (${(fs.statSync(ortWasmDest).size / 1e6).toFixed(1)}MB)`);
-  } else {
-    console.warn('  ⚠ Missing: ort-wasm-simd-threaded.jsep.wasm');
+  // 7. Copy ONNX Runtime WASM + JSEP glue files
+  const ortFiles = [
+    ['ort-wasm-simd-threaded.jsep.wasm', 'ort-wasm-simd-threaded.jsep.wasm'],
+    ['ort-wasm-simd-threaded.jsep.mjs', 'ort-wasm-simd-threaded.jsep.mjs'],
+  ];
+  for (const [srcName, destName] of ortFiles) {
+    const src = path.join(NODE_MODULES, 'onnxruntime-web', 'dist', srcName);
+    const dest = path.join(DIST, 'vendor', 'ort', destName);
+    ensureDir(path.dirname(dest));
+    if (fs.existsSync(src)) {
+      fs.copyFileSync(src, dest);
+      const size = fs.statSync(dest).size;
+      console.log(`  ✓ vendor/ort/${destName} (${(size / 1e6).toFixed(1)}MB)`);
+    } else {
+      console.warn(`  ⚠ Missing: ${srcName}`);
+    }
   }
 
   // 8. Generate placeholder icons if not present

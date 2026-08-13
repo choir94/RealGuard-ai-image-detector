@@ -56,8 +56,8 @@ classifier:
 ### From source (reproducible build)
 
 ```bash
-git clone https://github.com/buildborderless/realguard.git
-cd realguard
+git clone https://github.com/choir94/RealGuard-ai-image-detector.git
+cd RealGuard-ai-image-detector
 npm install
 npm run build
 ```

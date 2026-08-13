@@ -70,7 +70,7 @@ frame-ancestors 'none';
 **Do not open a public GitHub issue for security vulnerabilities.**
 
 1. Open a **private security advisory** on GitHub:
-   `https://github.com/buildborderless/realguard/security/advisories/new`
+   `https://github.com/choir94/RealGuard-ai-image-detector/security/advisories/new`
 2. Include a clear description, reproduction steps, and impact assessment.
 3. You will receive an acknowledgment within **48 hours**.
 4. A fix or mitigation timeline will be provided within **7 days**.

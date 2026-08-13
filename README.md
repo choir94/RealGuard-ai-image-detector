@@ -143,6 +143,8 @@ Open the popup → **Forensics Lab**, then drag a folder containing `real/` and
 See [`docs/evaluation.json`](./docs/evaluation.json) and
 [`docs/MODEL.md`](./docs/MODEL.md) for detailed results.
 
+![Detection Demo](./docs/screenshots/detection-demo.png)
+
 Independent benchmark (110 images, through the real extension pipeline):
 
 | Metric | Raw sigmoid | With calibration |

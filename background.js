@@ -2,9 +2,14 @@
  * RealGuard — Background Service Worker
  * Handles model loading, caching, and inference orchestration.
  * Uses Transformers.js with WebGPU/WASM backend.
+ * 
+ * The CommunityForensics model uses num_labels=1 (sigmoid output):
+ * - Raw output is a single logit
+ * - sigmoid(logit) = P(fake)
+ * - We bypass the pipeline's softmax and apply sigmoid manually
  */
 
-import { pipeline, env } from './lib/transformers.min.js';
+import { pipeline, env, AutoModel, AutoProcessor, RawImage } from './lib/transformers.min.js';
 
 // Configure Transformers.js for browser extension (offline-capable)
 env.allowLocalModels = false;
@@ -13,21 +18,22 @@ env.remoteHost = 'https://huggingface.co/buildborderless/CommunityForensics-Deep
 env.useBrowserCache = true;
 
 // Configure ONNX Runtime WASM paths to use bundled files
-// This is critical for offline operation
 env.backends.onnx.wasm.wasmPaths = chrome.runtime.getURL('lib/ort/');
 
 // Model configuration
 const MODEL_ID = 'buildborderless/CommunityForensics-DeepfakeDet-ViT';
 const CONFIDENCE_THRESHOLD = 0.65;
-let detector = null;
+let model = null;
+let processor = null;
 let isInitializing = false;
 
 /**
  * Initialize the AI detection model.
- * Downloads model on first run, uses cache afterward.
+ * Downloads model on first run (~22MB INT8), uses browser cache afterward.
+ * Tries WebGPU first, falls back to WASM.
  */
 async function initModel() {
-  if (detector || isInitializing) return detector;
+  if ((model && processor) || isInitializing) return;
   isInitializing = true;
 
   try {
@@ -43,10 +49,14 @@ async function initModel() {
       console.log('[RealGuard] WebGPU not available, using WASM');
     }
 
-    detector = await pipeline('image-classification', MODEL_ID, {
+    // Load model and processor separately for more control over output
+    // Using AutoModel instead of pipeline to bypass softmax on single-label model
+    model = await AutoModel.from_pretrained(MODEL_ID, {
       device: device,
-      dtype: 'q8',  // Use int8 quantized model (~22MB)
+      dtype: 'q8',
     });
+
+    processor = await AutoProcessor.from_pretrained(MODEL_ID);
 
     const elapsed = ((performance.now() - startTime) / 1000).toFixed(1);
     console.log(`[RealGuard] Model loaded in ${elapsed}s on ${device}`);
@@ -60,8 +70,6 @@ async function initModel() {
         // Tab might not have content script
       }
     }
-
-    return detector;
   } catch (error) {
     console.error('[RealGuard] Model init failed:', error);
     throw error;
@@ -71,41 +79,58 @@ async function initModel() {
 }
 
 /**
+ * Sigmoid function: converts raw logit to probability.
+ * @param {number} logit - raw model output
+ * @returns {number} probability between 0 and 1
+ */
+function sigmoid(logit) {
+  return 1 / (1 + Math.exp(-logit));
+}
+
+/**
  * Run inference on an image and return confidence score.
+ * 
+ * The CommunityForensics model (num_labels=1) outputs a single logit.
+ * sigmoid(logit) = P(fake). We bypass the pipeline's softmax and
+ * apply sigmoid manually for correct probability interpretation.
+ * 
  * @param {string} imageDataUrl - Base64 data URL of the image
- * @returns {Promise<{isAI: boolean, confidence: number, rawScore: number}>}
+ * @returns {Promise<{isAI: boolean, confidence: number, rawScore: number, aiProbability: number}>}
  */
 async function detectImage(imageDataUrl) {
-  if (!detector) {
+  if (!model || !processor) {
     await initModel();
   }
 
   try {
-    const result = await detector(imageDataUrl);
+    // Load image from data URL
+    const image = await RawImage.fromURL(imageDataUrl);
 
-    // Model outputs single sigmoid logit: 0 = real, 1 = fake
-    // Transformers.js pipeline returns [{label, score}] format
-    let fakeProb;
-    if (Array.isArray(result)) {
-      // Find the "fake" label or use the raw score
-      const fakeResult = result.find(r => 
-        r.label?.toLowerCase().includes('fake') || 
-        r.label?.toLowerCase().includes('ai') ||
-        r.label?.toLowerCase().includes('synthetic')
-      );
-      if (fakeResult) {
-        fakeProb = fakeResult.score;
+    // Preprocess: processor handles resize (shortest_edge=440), 
+    // center crop (384x384), and CLIP normalization
+    const inputs = await processor(image);
+
+    // Run inference — model returns {logits} with shape [1, 1]
+    const outputs = await model(inputs);
+
+    // Extract the raw logit
+    let logit;
+    if (outputs.logits) {
+      const logitsData = outputs.logits.data || outputs.logits.tolist?.();
+      if (logitsData instanceof Float32Array || Array.isArray(logitsData)) {
+        logit = Array.isArray(logitsData[0]) ? logitsData[0][0] : logitsData[0];
       } else {
-        // Single logit output — result[0].score is the fake probability
-        fakeProb = result[0].score;
+        logit = logitsData;
       }
-    } else if (typeof result === 'object' && result.score !== undefined) {
-      fakeProb = result.score;
     } else {
-      fakeProb = 0.5;
+      console.warn('[RealGuard] Unexpected output format:', Object.keys(outputs));
+      logit = 0;
     }
 
-    // Apply confidence threshold
+    // Apply sigmoid to get P(fake)
+    const fakeProb = sigmoid(logit);
+
+    // Apply confidence threshold (65% per bounty spec)
     const isAI = fakeProb >= CONFIDENCE_THRESHOLD;
     const confidence = Math.max(fakeProb, 1 - fakeProb);
 
@@ -144,7 +169,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
         case 'GET_STATUS':
           sendResponse({
-            modelLoaded: !!detector,
+            modelLoaded: !!(model && processor),
             isInitializing,
             modelId: MODEL_ID,
             threshold: CONFIDENCE_THRESHOLD,
